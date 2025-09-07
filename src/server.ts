@@ -19,7 +19,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 app.use(cors({
-  origin: "http://localhost:4800",  // 👈 must match exactly
+  origin: "https://doc-ai-fast.netlify.app/",  // 👈 must match exactly http://localhost:4800
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
