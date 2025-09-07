@@ -1,37 +1,25 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitThis": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "moduleDetection": "force",
-    "allowImportingTsExtensions": false,
-    "noEmit": false,
-    "lib": ["ES2020"],
-    "types": ["node"],
-    "resolveJsonModule": true
+    /* Language and Environment */
+    "target": "ES2020",                     
+    "lib": ["ES2020"],                      
+    "module": "commonjs",                  
+
+    /* Paths */
+    "rootDir": "src",                       
+    "outDir": "dist",                       
+
+    /* Module Resolution */
+    "esModuleInterop": true,                
+    "moduleResolution": "node",             
+    "resolveJsonModule": true,              
+    "types": ["node"],                      
+
+    /* Type Checking */
+    "strict": true,                         
+    "skipLibCheck": true,                   
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
