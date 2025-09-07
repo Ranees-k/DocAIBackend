@@ -1,14 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
-import pool from "../config/db.ts";
+import pool from "../config/db";
 
-interface RateLimitData {
-  ip: string;
-  userId?: string;
-  date: string;
-  count: number;
-}
+// interface RateLimitData {
+//   ip: string;
+//   userId?: string;
+//   date: string;
+//   count: number;
+// }
 
-export const rateLimiter = async (req: Request, res: Response, next: NextFunction) => {
+export const rateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     const userId = req.body?.userId || req.headers['user-id'] as string;
@@ -26,7 +26,7 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
       // Anonymous user - check IP-based limit (3 queries per day)
       const ipLimit = await checkIPDailyLimit(ip, today || '');
       if (ipLimit >= 3) {
-        return res.status(429).json({
+        res.status(429).json({
           error: "Daily query limit exceeded",
           message: "You have reached the limit of 3 free queries per day. Please sign up or log in for unlimited access.",
           limit: 3,
@@ -47,19 +47,19 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-async function checkUserDailyLimit(userId: string, date: string): Promise<number> {
-  try {
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM query_usage 
-       WHERE user_id = $1 AND DATE(created_at) = $2`,
-      [userId, date]
-    );
-    return parseInt(result.rows[0].count);
-  } catch (error) {
-    console.error("Error checking user daily limit:", error);
-    return 0;
-  }
-}
+// async function checkUserDailyLimit(userId: string, date: string): Promise<number> {
+//   try {
+//     const result = await pool.query(
+//       `SELECT COUNT(*) as count FROM query_usage 
+//        WHERE user_id = $1 AND DATE(created_at) = $2`,
+//       [userId, date]
+//     );
+//     return parseInt(result.rows[0].count);
+//   } catch (error) {
+//     console.error("Error checking user daily limit:", error);
+//     return 0;
+//   }
+// }
 
 async function checkIPDailyLimit(ip: string, date: string): Promise<number> {
   try {

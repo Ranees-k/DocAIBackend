@@ -1,15 +1,15 @@
 import { type Request, type Response } from "express";
-import { saveFileRecord } from "../services/uploadFileService.ts";
-import { chunkText } from "../utils/chunkText.ts";
+import { saveFileRecord } from "../services/uploadFileService";
+import { chunkText } from "../utils/chunkText";
 import fs from "fs/promises";
-import pool from "../config/db.ts";
-import { generateEmbedding } from "../services/embedingService.ts";
+import pool from "../config/db";
+import { generateEmbedding } from "../services/embedingService";
 import  PDFParser  from "pdf2json";
 
-export const uploadFile = async (req: Request, res: Response) => {
+export const uploadFile = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+      res.status(400).json({ error: "No file uploaded" }); return;
     }
 
     const fileUrl = `/uploads/${req.file.filename}`;
@@ -48,7 +48,7 @@ export const uploadFile = async (req: Request, res: Response) => {
       rawText = await fs.readFile(req.file.path, "utf-8");
       console.log("rawText", rawText);
     } else {
-      return res.status(400).json({ error: "Unsupported file type" });
+      res.status(400).json({ error: "Unsupported file type" }); return;
     }
 
     // Step 2: Chunk the text
