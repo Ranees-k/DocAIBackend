@@ -2,7 +2,6 @@
   "name": "docaibackend",
   "version": "1.0.0",
   "main": "index.js",
-  
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc",
