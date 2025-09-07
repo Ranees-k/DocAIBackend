@@ -23,7 +23,6 @@
     "moduleDetection": "force",
     "allowImportingTsExtensions": false,
     "noEmit": false,
-    "types": ["node"],
     "lib": ["ES2020"],
     "resolveJsonModule": true
   },
