@@ -2,7 +2,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 import nodemailer from "nodemailer";
-import app from "../app.ts";
 
 // Email transporter (using Gmail for demo)
 const transporter = nodemailer.createTransport({

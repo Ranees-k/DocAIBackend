@@ -1,7 +1,7 @@
 // src/routes/queryRoutes.ts
 import { Router } from "express";
-import { queryDocument, getRateLimitStatus } from "../controllers/queryController.ts";
-import { rateLimiter } from "../middleware/rateLimiter.ts";
+import { queryDocument, getRateLimitStatus } from "../controllers/queryController";
+import { rateLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 

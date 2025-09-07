@@ -1,25 +1,25 @@
 // src/controllers/queryController.ts
 import { type Request, type Response } from "express";
-import { searchDocumentChunks } from "../services/queryService.ts";
-import { generateAnswer } from "../services/llmService.ts";
-import { checkRateLimit, recordQueryUsage } from "../services/rateLimitService.ts";
-import pool from "../config/db.ts";
+import { searchDocumentChunks } from "../services/queryService";
+import { generateAnswer } from "../services/llmService";
+import { checkRateLimit, recordQueryUsage } from "../services/rateLimitService";
+import pool from "../config/db";
 
-export const queryDocument = async (req: Request, res: Response) => {
+export const queryDocument = async (req: Request, res: Response): Promise<void> => {
   try {
     const { documentId, query, limit, userId } = req.body;
     console.log(req.body, "req.body");
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
 
     if (!documentId || !query) {
-      return res.status(400).json({ error: "documentId and query are required" });
+      res.status(400).json({ error: "documentId and query are required" }); return;
     }
 
     // Check rate limit
     const rateLimitCheck = await checkRateLimit(userId, ip);
     console.log(rateLimitCheck);
     if (!rateLimitCheck.allowed) {
-      return res.status(429).json({
+      res.status(429).json({
         error: "Daily query limit exceeded",
         message: rateLimitCheck.info.requiresAuth 
           ? "You have reached the limit of 3 free queries per day. Please sign up or log in to continue."
@@ -28,7 +28,7 @@ export const queryDocument = async (req: Request, res: Response) => {
         remaining: rateLimitCheck.info.remaining,
         resetTime: rateLimitCheck.info.resetTime,
         requiresAuth: rateLimitCheck.info.requiresAuth
-      });
+      }); return;
     }
 
     // Step 1: Search chunks
@@ -62,28 +62,28 @@ export const queryDocument = async (req: Request, res: Response) => {
         remaining: rateLimitCheck.info.remaining - 1,
         resetTime: rateLimitCheck.info.resetTime
       }
-    });
+    }); return;
   } catch (err: any) {
     console.error("❌ Query error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message }); return;
   }
 };
 
 // New endpoint to check rate limit status
-export const getRateLimitStatus = async (req: Request, res: Response) => {
+export const getRateLimitStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.query.userId as string;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     
-    const { checkRateLimit } = await import("../services/rateLimitService.ts");
+    const { checkRateLimit } = await import("../services/rateLimitService");
     const rateLimitCheck = await checkRateLimit(userId, ip);
     
     res.status(200).json({
       allowed: rateLimitCheck.allowed,
       ...rateLimitCheck.info
-    });
+    }); return;
   } catch (err: any) {
     console.error("❌ Rate limit status error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message }); return;
   }
 };
