@@ -1,10 +1,9 @@
 import express from "express";
 import cors from "cors";
-import nodemailer from "nodemailer";
 
-import authRoutes from "./routes/authRoutes.ts";
-import fileRoutes from "./routes/fileRoutes.ts";
-import queryRoutes from "./routes/queryRoutes.ts";
+import authRoutes from "./routes/authRoutes";
+import fileRoutes from "./routes/fileRoutes";
+import queryRoutes from "./routes/queryRoutes";
 
 const app = express();
 
