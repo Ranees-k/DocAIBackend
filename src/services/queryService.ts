@@ -1,6 +1,6 @@
 // src/services/queryService.ts
-import pool from "../config/db.ts";
-import { generateEmbedding } from "./embedingService.ts";
+import pool from "../config/db";
+import { generateEmbedding } from "./embedingService";
 
 /**
  * Search relevant document chunks by semantic similarity
