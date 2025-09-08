@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "prebuild": "npm install",
     "build": "tsc --skipLibCheck",
     "start": "node dist/server.js",
     "migrate": "tsx src/scripts/migrate.ts"
