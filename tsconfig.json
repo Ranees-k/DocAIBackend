@@ -13,11 +13,10 @@
     "esModuleInterop": true,                
     "moduleResolution": "node",             
     "resolveJsonModule": true,              
-    // "types": ["node"],                      
+    "skipLibCheck": true,
 
     /* Type Checking */
     "strict": true,                         
-    "skipLibCheck": true,                   
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src"],
