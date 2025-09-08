@@ -2,7 +2,7 @@
   "compilerOptions": {
     /* Language and Environment */
     "target": "ES2020",                     
-    "lib": ["ES2020"],                      
+    "lib": ["ES2020", "DOM"],                      
     "module": "commonjs",                  
 
     /* Paths */
@@ -13,7 +13,7 @@
     "esModuleInterop": true,                
     "moduleResolution": "node",             
     "resolveJsonModule": true,              
-    // "types": ["node"],                      
+    "types": ["node"],                      
 
     /* Type Checking */
     "strict": true,                         
