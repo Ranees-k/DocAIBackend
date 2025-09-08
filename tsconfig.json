@@ -13,7 +13,7 @@
     "esModuleInterop": true,                
     "moduleResolution": "node",             
     "resolveJsonModule": true,              
-    "types": ["node"],                      
+    // "types": ["node"],                      
 
     /* Type Checking */
     "strict": true,                         
