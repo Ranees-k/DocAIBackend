@@ -17,7 +17,7 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '6543'),
   database: process.env.DB_NAME || 'postgres',
   user: process.env.DB_USER || 'postgres.zcqqmlffuxnnppijsjaa',
-  password: process.env.DB_PASSWORD,
+  password: process.env.DB_PASSWORD ||'Ranees@123',
   // Force IPv4 to avoid IPv6 issues
     // family: 4,
   // Connection pool settings for Supabase
