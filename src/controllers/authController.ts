@@ -48,7 +48,7 @@ export const signup = async (req: any, res: any) => {
     });
 
     // send activation email
-    const link = `http://localhost:4800/activate/${token}`;
+    const link = `https://doc-ai-fast.netlify.app/activate/${token}`;
     await transporter.sendMail({
       from: '"MyApp" <your-email@gmail.com>',
       to: email,
