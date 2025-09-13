@@ -72,13 +72,13 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       const embedding = await generateEmbedding(cleanedChunk);
       console.log(embedding, "embedding");
 
-      // Format embedding as PostgreSQL vector literal
-      const vectorString = `[${embedding.join(',')}]`;
+      // Format embedding as JSON string for TEXT field
+      const embeddingString = JSON.stringify(embedding);
       
       await pool.query(
         `INSERT INTO document_chunks (document_id, chunk_text, embedding) 
-         VALUES ($1, $2, $3::vector)`,
-        [doc.id, cleanedChunk, vectorString]
+         VALUES ($1, $2, $3)`,
+        [doc.id, cleanedChunk, embeddingString]
       );
     }
 
