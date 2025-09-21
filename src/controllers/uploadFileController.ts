@@ -1,6 +1,9 @@
 import { type Request, type Response } from "express";
 import { saveFileRecord } from "../services/uploadFileService";
 import { chunkText } from "../utils/chunkText";
+import { chunkTextIntelligently, chunkPDFTextIntelligently, ChunkingOptions, IntelligentChunk } from "../utils/intelligentChunking";
+import { saveIntelligentDocumentChunks } from "../services/chunkService";
+import { getChunkingStrategy, validateChunkingOptions } from "../config/chunkingConfig";
 import fs from "fs/promises";
 import pool from "../config/db";
 import { generateEmbedding } from "../services/embedingService";
@@ -51,10 +54,35 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       res.status(400).json({ error: "Unsupported file type" }); return;
     }
 
-    // Step 2: Chunk the text
-    const chunks = chunkText(rawText);
+    // Step 2: Intelligent chunking configuration
+    const strategyName = req.body.chunkingStrategy || req.query.chunkingStrategy;
+    const customOptions = req.body.chunkingOptions || {};
+    
+    const strategy = getChunkingStrategy(req.file.mimetype, strategyName);
+    const chunkingOptions = validateChunkingOptions({
+      ...strategy.options,
+      ...customOptions
+    });
 
-    console.log("chunks", chunks);
+    // Step 3: Intelligent chunking based on file type
+    let intelligentChunks;
+    let pageBreaks: number[] = [];
+
+    if (req.file.mimetype === "application/pdf") {
+      // For PDFs, we can track page breaks for better context
+      // This is a simplified approach - in production you might want more sophisticated page detection
+      const pageBreakPattern = /\f/g; // Form feed character often indicates page breaks
+      let match;
+      while ((match = pageBreakPattern.exec(rawText)) !== null) {
+        pageBreaks.push(match.index);
+      }
+      
+      intelligentChunks = chunkPDFTextIntelligently(rawText, pageBreaks, chunkingOptions);
+    } else {
+      intelligentChunks = chunkTextIntelligently(rawText, chunkingOptions);
+    }
+
+    console.log(`Generated ${intelligentChunks.length} intelligent chunks`);
 
     // Helper to clean text
     function cleanText(text: string): string {
@@ -64,29 +92,47 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
         .trim();
     }
 
-    // Step 3: Process chunks → embed → save to DB
-    for (const chunk of chunks) {
-      const cleanedChunk = cleanText(chunk);
+    // Step 4: Process chunks → embed → save to DB with metadata
+    const chunksWithEmbeddings: Array<IntelligentChunk & { metadata: IntelligentChunk['metadata'] & { embedding?: number[] } }> = [];
+    
+    for (const chunk of intelligentChunks) {
+      const cleanedChunk = cleanText(chunk.text);
       if (cleanedChunk.length === 0) continue;
 
       const embedding = await generateEmbedding(cleanedChunk);
-      console.log(embedding, "embedding");
+      console.log(`Generated embedding for chunk ${chunk.metadata.chunkIndex + 1}/${chunk.metadata.totalChunks}`);
 
-      // Format embedding as JSON string for TEXT field
-      const embeddingString = JSON.stringify(embedding);
-      
-      await pool.query(
-        `INSERT INTO document_chunks (document_id, chunk_text, embedding) 
-         VALUES ($1, $2, $3)`,
-        [doc.id, cleanedChunk, embeddingString]
-      );
+      // Create chunk with embedding
+      chunksWithEmbeddings.push({
+        text: cleanedChunk,
+        metadata: {
+          ...chunk.metadata,
+          embedding: embedding
+        }
+      });
     }
 
-    // Step 4: Response
+    // Save all chunks with metadata to database
+    await saveIntelligentDocumentChunks(doc.id, chunksWithEmbeddings);
+
+    // Step 5: Response with intelligent chunking info
+    const chunkSummary = {
+      totalChunks: intelligentChunks.length,
+      chunksWithHeadings: intelligentChunks.filter(c => c.metadata.heading).length,
+      averageChunkSize: Math.round(intelligentChunks.reduce((sum, c) => sum + c.metadata.charCount, 0) / intelligentChunks.length),
+      sections: [...new Set(intelligentChunks.map(c => c.metadata.section).filter(Boolean))],
+      headingLevels: [...new Set(intelligentChunks.map(c => c.metadata.headingLevel).filter(Boolean))].sort()
+    };
+
     res.status(201).json({
-      message: "✅ Document uploaded successfully",
+      message: "✅ Document uploaded successfully with intelligent chunking",
       document: doc,
-      chunks: chunks.length,
+      chunking: {
+        strategy: strategy.name,
+        description: strategy.description,
+        summary: chunkSummary,
+        options: chunkingOptions
+      }
     });
   } catch (err: any) {
     console.error("❌ Upload error:", err);
