@@ -82,8 +82,18 @@ export async function recordQueryUsage(
   query: string
 ): Promise<void> {
   try {
-    // Convert documentId to integer if it's a string
-    const docId = typeof documentId === 'string' ? parseInt(documentId) : documentId;
+    // Handle documentId properly - if it's a UUID string, we need to find the actual document ID
+    let docId: number | null = null;
+    
+    if (typeof documentId === 'string') {
+      // If it's a UUID string, try to find the document by some identifier
+      // For now, we'll set it to null since we don't have a UUID field in documents table
+      // In a real implementation, you might want to add a UUID field to documents table
+      console.log(`Document ID is UUID string: ${documentId}, setting to null for query usage tracking`);
+      docId = null;
+    } else {
+      docId = documentId;
+    }
     
     await pool.query(
       `INSERT INTO query_usage (user_id, ip_address, document_id, query, created_at) 

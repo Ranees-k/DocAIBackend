@@ -45,10 +45,13 @@ export const queryDocument = async (req: Request, res: Response): Promise<void> 
 
     // Save to chat history if user is authenticated
     if (userId) {
+      // Handle documentId for chat history - if it's a UUID string, set to null
+      const chatDocId = typeof documentId === 'string' ? null : documentId;
+      
       await pool.query(
         `INSERT INTO chat_history (user_id, document_id, question, answer) 
          VALUES ($1, $2, $3, $4)`, 
-        [userId, documentId, query, answer]
+        [userId, chatDocId, query, answer]
       );
     }
 
