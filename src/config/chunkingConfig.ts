@@ -150,13 +150,13 @@ export function validateChunkingOptions(options: Partial<ChunkingOptions>): Chun
   const defaults = CHUNKING_STRATEGIES.default.options;
   
   return {
-    maxChunkSize: Math.max(100, Math.min(2000, options.maxChunkSize || defaults.maxChunkSize)),
-    minChunkSize: Math.max(50, Math.min(500, options.minChunkSize || defaults.minChunkSize)),
-    overlapSize: Math.max(0, Math.min(300, options.overlapSize || defaults.overlapSize)),
+    maxChunkSize: Math.max(100, Math.min(2000, options?.maxChunkSize ?? defaults.maxChunkSize ?? 1000)),
+    minChunkSize: Math.max(50, Math.min(500, options?.minChunkSize ?? defaults.minChunkSize ?? 200)),
+    overlapSize: Math.max(0, Math.min(300, options?.overlapSize ?? defaults.overlapSize ?? 100)),
     respectSentenceBoundaries: options.respectSentenceBoundaries ?? defaults.respectSentenceBoundaries,
     respectParagraphBoundaries: options.respectParagraphBoundaries ?? defaults.respectParagraphBoundaries,
     respectHeadingBoundaries: options.respectHeadingBoundaries ?? defaults.respectHeadingBoundaries,
     preserveHeadingHierarchy: options.preserveHeadingHierarchy ?? defaults.preserveHeadingHierarchy,
-    maxHeadingLevel: Math.max(1, Math.min(10, options.maxHeadingLevel || defaults.maxHeadingLevel))
+    maxHeadingLevel: Math.max(1, Math.min(10, options?.maxHeadingLevel ?? defaults.maxHeadingLevel ?? 6))
   };
 }
