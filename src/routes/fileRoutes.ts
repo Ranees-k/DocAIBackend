@@ -1,12 +1,12 @@
 import express, { Router } from "express";
-import multer from "multer";
-import { uploadFile } from "../controllers/uploadFileController";
+import { uploadFile, getDocumentStatus } from "../controllers/uploadFileController";
 import { getAvailableStrategies } from "../config/chunkingConfig";
+import { upload } from "../middleware/uploadMiddleware";
 
 const router: Router = Router();
-const upload = multer({ dest: "uploads/" });
 
 router.post("/upload", upload.single("file"), uploadFile);
+router.get("/status/:docId", getDocumentStatus);
 
 // Get available chunking strategies
 router.get("/chunking-strategies", (req, res) => {
