@@ -102,6 +102,20 @@ async function runMigrations() {
       ON document_chunks(document_id, chunk_index)
     `);
     
+    // Add status columns to documents table for processing tracking
+    await pool.query(`
+      ALTER TABLE documents 
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS error_message TEXT,
+      ADD COLUMN IF NOT EXISTS processed_at TIMESTAMP
+    `);
+    
+    // Create index for status queries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_documents_status 
+      ON documents(status)
+    `);
+    
     console.log("✅ Migrations completed successfully");
   } catch (error) {
     console.error("❌ Migration error:", error);
