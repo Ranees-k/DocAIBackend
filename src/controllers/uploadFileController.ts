@@ -16,10 +16,19 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       res.status(400).json({ error: "No file uploaded" }); return;
     }
 
+    // Check file size (limit to 5MB for Render free tier)
+    const maxFileSize = 5 * 1024 * 1024; // 5MB
+    if (req.file.size > maxFileSize) {
+      res.status(400).json({ 
+        error: "File too large. Maximum size is 5MB for free tier." 
+      }); 
+      return;
+    }
+
     const fileUrl = `/uploads/${req.file.filename}`;
     let pageBreaks: number[] = [];
 
-    // Save file metadata in DB
+    // Save file metadata in DB first
     const doc = await saveFileRecord({
       userId: req.body.userId,
       filename: req.file.originalname,
@@ -27,11 +36,45 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       fileUrl: fileUrl,
     });
 
+    // Send immediate response to prevent timeout
+    res.status(201).json({
+      message: "✅ File uploaded successfully. Processing in background...",
+      document: doc,
+      processing: true
+    });
+
+    // Process file asynchronously to prevent timeout
+    processFileAsync(req.file, doc.id, pageBreaks).catch(error => {
+      console.error("❌ Background processing error:", error);
+      // Update document status in DB to indicate failure
+      pool.query(
+        "UPDATE documents SET status = 'failed', error_message = $1 WHERE id = $2",
+        [error.message, doc.id]
+      );
+    });
+
+  } catch (err: any) {
+    console.error("❌ Upload error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Async file processing function to prevent timeouts
+async function processFileAsync(file: Express.Multer.File, docId: number, pageBreaks: number[]): Promise<void> {
+  try {
+    console.log(`🔄 Starting background processing for document ${docId}`);
+    
+    // Update status to processing
+    await pool.query(
+      "UPDATE documents SET status = 'processing' WHERE id = $1",
+      [docId]
+    );
+
     // Step 1: Extract text based on file type
     let rawText: string;
 
-    if (req.file.mimetype === "application/pdf") {
-      const pdfBuffer = await fs.readFile(req.file.path);
+    if (file.mimetype === "application/pdf") {
+      const pdfBuffer = await fs.readFile(file.path);
       
       const pdfData: any = await new Promise((resolve, reject) => {
         const pdfParser = new PDFParser();
@@ -40,12 +83,10 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
         pdfParser.parseBuffer(pdfBuffer);
       });
 
-
       // ✅ Extract text from Pages
       rawText = pdfData.Pages.map((page: any) =>
         page.Texts.map((t: any) => decodeURIComponent(t.R[0].T)).join(" ")
       ).join("\n");
-
 
       // Calculate page breaks based on actual PDF page structure
       let currentPosition = 0;
@@ -57,25 +98,22 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
         pageBreaks.push(currentPosition);
       }
 
-    } else if (req.file.mimetype === "text/plain") {
+    } else if (file.mimetype === "text/plain") {
       // Plain text
-      rawText = await fs.readFile(req.file.path, "utf-8");
+      rawText = await fs.readFile(file.path, "utf-8");
     } else {
-      res.status(400).json({ error: "Unsupported file type" }); return;
+      throw new Error("Unsupported file type");
     }
 
-    console.log("rawText", rawText);
-    // Step 2: Intelligent chunking configuration
-    const strategyName = req.body.chunkingStrategy || req.query.chunkingStrategy;
-    const customOptions = req.body.chunkingOptions || {};
-    
-    const strategy = getChunkingStrategy(req.file.mimetype, strategyName);
+    console.log(`📄 Extracted text for document ${docId}, length: ${rawText.length}`);
 
+    // Step 2: Intelligent chunking configuration
+    const strategy = getChunkingStrategy(file.mimetype);
 
     const options: ChunkingOptions = {
-      maxChunkSize: 1000,        // Increased from 500
-      minChunkSize: 200,         // Added minimum chunk size
-      overlapSize: 100,         // Increased overlap
+      maxChunkSize: 800,        // Reduced for faster processing
+      minChunkSize: 150,        // Reduced minimum chunk size
+      overlapSize: 50,          // Reduced overlap
       respectHeadingBoundaries: true,
       respectParagraphBoundaries: true,
       respectSentenceBoundaries: true,
@@ -86,13 +124,13 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
     // Step 3: Intelligent chunking based on file type
     let intelligentChunks;
 
-    if (req.file.mimetype === "application/pdf") {
+    if (file.mimetype === "application/pdf") {
       intelligentChunks = chunkPDFTextIntelligently(rawText, pageBreaks, options);
-
     } else {
       intelligentChunks = chunkTextIntelligently(rawText, options);
     }
 
+    console.log(`📦 Created ${intelligentChunks.length} chunks for document ${docId}`);
 
     // Helper to clean text
     function cleanText(text: string): string {
@@ -102,51 +140,95 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
         .trim();
     }
 
-    // Step 4: Process chunks → embed → save to DB with metadata
+    // Step 4: Process chunks in batches to avoid memory issues
+    const batchSize = 5; // Process 5 chunks at a time
     const chunksWithEmbeddings: Array<IntelligentChunk & { metadata: IntelligentChunk['metadata'] & { embedding?: number[] } }> = [];
     
-    for (const chunk of intelligentChunks) {
-      const cleanedChunk = cleanText(chunk.text);
-      if (cleanedChunk.length === 0) continue;
+    for (let i = 0; i < intelligentChunks.length; i += batchSize) {
+      const batch = intelligentChunks.slice(i, i + batchSize);
+      
+      for (const chunk of batch) {
+        const cleanedChunk = cleanText(chunk.text);
+        if (cleanedChunk.length === 0) continue;
 
-
-      const embedding = await generateEmbedding(cleanedChunk);
-
-      // Create chunk with embedding
-      chunksWithEmbeddings.push({
-        text: cleanedChunk,
-        metadata: {
-          ...chunk.metadata,
-          embedding: embedding
+        try {
+          const embedding = await generateEmbedding(cleanedChunk);
+          
+          chunksWithEmbeddings.push({
+            text: cleanedChunk,
+            metadata: {
+              ...chunk.metadata,
+              embedding: embedding
+            }
+          });
+        } catch (embeddingError) {
+          console.error(`❌ Embedding error for chunk ${i}:`, embeddingError);
+          // Continue with other chunks even if one fails
         }
-      });
+      }
+      
+      // Small delay between batches to prevent overwhelming the API
+      if (i + batchSize < intelligentChunks.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
-
     // Save all chunks with metadata to database
-    await saveIntelligentDocumentChunks(doc.id, chunksWithEmbeddings);
+    await saveIntelligentDocumentChunks(docId.toString(), chunksWithEmbeddings);
 
-    // Step 5: Response with intelligent chunking info
-    const chunkSummary = {
-      totalChunks: intelligentChunks.length,
-      chunksWithHeadings: intelligentChunks.filter(c => c.metadata.heading).length,
-      averageChunkSize: Math.round(intelligentChunks.reduce((sum, c) => sum + c.metadata.charCount, 0) / intelligentChunks.length),
-      sections: [...new Set(intelligentChunks.map(c => c.metadata.section).filter(Boolean))],
-      headingLevels: [...new Set(intelligentChunks.map(c => c.metadata.headingLevel).filter(Boolean))].sort()
-    };
+    // Update status to completed
+    await pool.query(
+      "UPDATE documents SET status = 'completed', processed_at = NOW() WHERE id = $1",
+      [docId]
+    );
 
-    res.status(201).json({
-      message: "✅ Document uploaded successfully with intelligent chunking",
+    console.log(`✅ Successfully processed document ${docId} with ${chunksWithEmbeddings.length} chunks`);
+
+    // Clean up uploaded file (since Render's filesystem is ephemeral)
+    try {
+      await fs.unlink(file.path);
+      console.log(`🗑️ Cleaned up file: ${file.path}`);
+    } catch (cleanupError) {
+      console.error("⚠️ Failed to cleanup file:", cleanupError);
+    }
+
+  } catch (error: any) {
+    console.error(`❌ Background processing failed for document ${docId}:`, error);
+    
+    // Update status to failed
+    await pool.query(
+      "UPDATE documents SET status = 'failed', error_message = $1 WHERE id = $2",
+      [error.message, docId]
+    );
+    
+    throw error;
+  }
+}
+
+// Get document processing status
+export const getDocumentStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { docId } = req.params;
+    
+    const result = await pool.query(
+      "SELECT id, filename, status, error_message, created_at, processed_at FROM documents WHERE id = $1",
+      [docId]
+    );
+    
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    
+    const doc = result.rows[0];
+    res.json({
       document: doc,
-      chunking: {
-        strategy: strategy.name,
-        description: strategy.description,
-        summary: chunkSummary,
-        options: options
-      }
+      isProcessing: doc.status === 'processing',
+      isCompleted: doc.status === 'completed',
+      hasError: doc.status === 'failed'
     });
   } catch (err: any) {
-    console.error("❌ Upload error:", err);
+    console.error("❌ Status check error:", err);
     res.status(500).json({ error: err.message });
   }
 };

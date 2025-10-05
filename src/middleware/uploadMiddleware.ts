@@ -19,4 +19,18 @@ const storage = multer.diskStorage({
   },
 });
 
-export const upload = multer({ storage });
+export const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit for Render free tier
+    files: 1 // Only one file at a time
+  },
+  fileFilter: (req, file, cb) => {
+    // Only allow PDF and text files
+    if (file.mimetype === 'application/pdf' || file.mimetype === 'text/plain') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and text files are allowed'));
+    }
+  }
+});
