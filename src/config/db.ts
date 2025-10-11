@@ -18,16 +18,18 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'postgres',
   user: process.env.DB_USER || 'postgres.zcqqmlffuxnnppijsjaa',
   password: process.env.DB_PASSWORD ||'Ranees@123',
-  // Force IPv4 to avoid IPv6 issues
-    // family: 4,
-  // Connection pool settings for Supabase
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+  // Connection pool settings for Supabase - optimized for production
+  max: 10, // Reduced max connections to avoid pool exhaustion
+  min: 2, // Keep minimum connections alive
+  idleTimeoutMillis: 20000, // Close idle clients after 20 seconds
+  connectionTimeoutMillis: 5000, // Reduced timeout to 5 seconds
   // SSL configuration for Supabase
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // Additional production settings
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 0
 });
 
 // Add error handling for database connection

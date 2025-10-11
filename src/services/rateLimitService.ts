@@ -13,40 +13,60 @@ export async function getRateLimitInfo(
 ): Promise<RateLimitInfo> {
   const today = new Date().toISOString().split('T')[0];
   
-  if (userId) {
-    // Authenticated user
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM query_usage 
-       WHERE user_id = $1 AND DATE(created_at) = $2`,
-      [userId, today]
-    );
-    
-    const used = parseInt(result.rows[0].count);
-    const limit = 50;
-    
-    return {
-      limit,
-      remaining: Math.max(0, limit - used),
-      resetTime: getNextDayResetTime(),
-      requiresAuth: false
-    };
-  } else if (ip) {
-    // Anonymous user
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM query_usage 
-       WHERE ip_address = $1 AND DATE(created_at) = $2 AND user_id IS NULL`,
-      [ip, today]
-    );
-    
-    const used = parseInt(result.rows[0].count);
-    const limit = 3;
-    
-    return {
-      limit,
-      remaining: Math.max(0, limit - used),
-      resetTime: getNextDayResetTime(),
-      requiresAuth: used >= limit
-    };
+  try {
+    if (userId) {
+      // Authenticated user
+      const result = await pool.query(
+        `SELECT COUNT(*) as count FROM query_usage 
+         WHERE user_id = $1 AND DATE(created_at) = $2`,
+        [userId, today]
+      );
+      
+      const used = parseInt(result.rows[0].count);
+      const limit = 50;
+      
+      return {
+        limit,
+        remaining: Math.max(0, limit - used),
+        resetTime: getNextDayResetTime(),
+        requiresAuth: false
+      };
+    } else if (ip) {
+      // Anonymous user
+      const result = await pool.query(
+        `SELECT COUNT(*) as count FROM query_usage 
+         WHERE ip_address = $1 AND DATE(created_at) = $2 AND user_id IS NULL`,
+        [ip, today]
+      );
+      
+      const used = parseInt(result.rows[0].count);
+      const limit = 3;
+      
+      return {
+        limit,
+        remaining: Math.max(0, limit - used),
+        resetTime: getNextDayResetTime(),
+        requiresAuth: used >= limit
+      };
+    }
+  } catch (error) {
+    console.error('❌ Database error in getRateLimitInfo:', error);
+    // Return generous limits when database is unavailable
+    if (userId) {
+      return {
+        limit: 50,
+        remaining: 50,
+        resetTime: getNextDayResetTime(),
+        requiresAuth: false
+      };
+    } else {
+      return {
+        limit: 10, // More generous for anonymous users when DB is down
+        remaining: 10,
+        resetTime: getNextDayResetTime(),
+        requiresAuth: false
+      };
+    }
   }
   
   return {
@@ -101,7 +121,8 @@ export async function recordQueryUsage(
       [userId, ip, docId, query]
     );
   } catch (error) {
-    console.error("Error recording query usage:", error);
-    throw error;
+    console.error("❌ Error recording query usage:", error);
+    // Don't throw error - just log it so the main query can still proceed
+    // This prevents the entire query from failing just because usage tracking failed
   }
 } 
