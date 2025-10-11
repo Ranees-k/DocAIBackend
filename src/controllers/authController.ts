@@ -11,18 +11,16 @@ const transporter = nodemailer.createTransport({
     pass: "jfbw vhjo hnqw lkgz", // use Gmail App Password
   },
   // Optimize for Render's free tier
-  pool: true, // Use connection pooling
-  maxConnections: 5, // Limit connections
-  maxMessages: 100, // Limit messages per connection
-  rateLimit: 14, // Limit to 14 emails per second
-  // Timeout settings
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 5000, // 5 seconds
-  socketTimeout: 10000, // 10 seconds
-  // Retry settings
-  retryDelay: 2000, // 2 seconds between retries
-  maxRetries: 3, // Maximum 3 retries
-});
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  rateLimit: 14,
+  connectionTimeout: 10000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
+  retryDelay: 2000,
+  maxRetries: 3,
+} as any);
 
 // ----------------- SIGNUP -----------------
 export const signup = async (req: any, res: any) => {
