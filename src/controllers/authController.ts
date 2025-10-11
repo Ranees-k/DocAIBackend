@@ -44,38 +44,40 @@ export const signup = async (req: any, res: any) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log(`🔐 Password hashed for: ${email}`);
 
-    // insert as inactive user
-    const result = await pool.query(
-      "INSERT INTO users (name, email, password_hash, active) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, email, hashedPassword, false]
-    );
-
-    const newUser = result.rows[0];
-    console.log(`👤 User created with ID: ${newUser.id}`);
-
     // create activation token
     const token = jwt.sign({ email }, process.env.JWT_SECRET as string, {
       expiresIn: "1d",
     });
 
-    // Send immediate response to prevent timeout
-    res.json({
-      message: "Signup successful! Check your email to activate.",
-      userId: newUser.id,
-      emailSent: true
-    });
+    // Try to send email first
+    try {
+      console.log(`📧 Attempting to send activation email to: ${email}`);
+      await sendActivationEmailAsync(email, name, token);
+      
+      // Only insert user if email was sent successfully
+      const result = await pool.query(
+        "INSERT INTO users (name, email, password_hash, active, email_sent) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        [name, email, hashedPassword, false, true]
+      );
 
-    // Send activation email asynchronously to prevent timeout
-    sendActivationEmailAsync(email, name, token).catch(error => {
-      console.error(`❌ Failed to send activation email to ${email}:`, error);
-      // Update user status to indicate email sending failed
-      pool.query(
-        "UPDATE users SET email_sent = false WHERE id = $1",
-        [newUser.id]
-      ).catch(dbError => {
-        console.error("❌ Failed to update email status:", dbError);
+      const newUser = result.rows[0];
+      console.log(`👤 User created with ID: ${newUser.id} after successful email send`);
+
+      res.json({
+        message: "Signup successful! Check your email to activate.",
+        userId: newUser.id,
+        emailSent: true
       });
-    });
+
+    } catch (emailError: any) {
+      console.error(`❌ Failed to send activation email to ${email}:`, emailError);
+      
+      // Don't save user if email fails
+      res.status(500).json({ 
+        error: "Failed to send activation email. Please try again.",
+        details: emailError.message 
+      });
+    }
 
   } catch (err: any) {
     console.error("❌ Signup error:", err);
@@ -116,12 +118,6 @@ async function sendActivationEmailAsync(email: string, name: string, token: stri
     await sgMail.send(msg);
     
     console.log(`✅ Activation email sent successfully to: ${email}`);
-    
-    // Update user status to indicate email was sent
-    await pool.query(
-      "UPDATE users SET email_sent = true WHERE email = $1",
-      [email]
-    );
     
   } catch (error: any) {
     console.error(`❌ Email sending failed for ${email}:`, error);
