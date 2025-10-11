@@ -116,6 +116,18 @@ async function runMigrations() {
       ON documents(status)
     `);
     
+    // Add email_sent column to users table for tracking email delivery
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS email_sent BOOLEAN DEFAULT NULL
+    `);
+    
+    // Create index for email_sent queries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_email_sent 
+      ON users(email_sent)
+    `);
+    
     console.log("✅ Migrations completed successfully");
   } catch (error) {
     console.error("❌ Migration error:", error);
