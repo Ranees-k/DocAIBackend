@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { signup, login } from "../controllers/authController";
+import { signup, login, resendActivationEmail } from "../controllers/authController";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 
@@ -7,6 +7,7 @@ const router: Router = Router();
 
 router.post("/signup", signup);
 router.post("/login", login);
+router.post("/resend-activation", resendActivationEmail);
 
 router.get("/activate/:token", async (req: any, res: any) => {
   const { token } = req.params;
