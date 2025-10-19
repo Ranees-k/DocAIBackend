@@ -419,7 +419,7 @@ async function sendPasswordResetEmailAsync(email: string, name: string, token: s
   try {
     console.log(`📧 Sending password reset email to: ${email}`);
     
-    const resetLink = `https://doc-ai-fast.netlify.app/reset-password/${token}`;
+    const resetLink = `https://docaibackend-41i1.onrender.com/auth/reset-password/${token}`;
     
     const msg = {
       to: email,
