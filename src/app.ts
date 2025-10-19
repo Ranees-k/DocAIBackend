@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes";
 import fileRoutes from "./routes/fileRoutes";
 import queryRoutes from "./routes/queryRoutes";
 import contactRoutes from "./routes/contactRoutes";
+import { checkDatabaseHealth } from "./config/db";
 
 const app = express();
 
@@ -22,6 +23,21 @@ app.use((req, res, next) => {
 
 // Trust proxy for accurate IP addresses
 app.set('trust proxy', true);
+
+// Health check endpoint
+app.get("/health", async (req, res) => {
+  const dbHealth = await checkDatabaseHealth();
+  const serverHealth = {
+    status: "running",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database: dbHealth
+  };
+  
+  const statusCode = dbHealth.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(serverHealth);
+});
 
 // Routes
 app.use("/auth", authRoutes);
