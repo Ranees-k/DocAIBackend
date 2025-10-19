@@ -4,6 +4,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import fileRoutes from "./routes/fileRoutes";
 import queryRoutes from "./routes/queryRoutes";
+import contactRoutes from "./routes/contactRoutes";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.set('trust proxy', true);
 app.use("/auth", authRoutes);
 app.use("/file", fileRoutes);
 app.use("/query", queryRoutes);
+app.use("/contact", contactRoutes);
 // app.use("/documents", fileRoutes);
 
 app.get("/", (req, res) => {
