@@ -1,12 +1,10 @@
 // src/services/llmService.ts
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // ⚠️ set in .env
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function generateAnswer(query: string, context: string) {
-    const prompt = `
+  const prompt = `
     You are an AI assistant. Your primary task is to answer the user's question based on the provided PDF context. 
     The PDF may contain information about a person, finance, project description, or other topics. 
     
@@ -26,15 +24,20 @@ export async function generateAnswer(query: string, context: string) {
     ❓ User Query:
     ${query}
     `;
-    
 
   console.log("prompt", prompt);
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini", // ✅ lightweight, fast model
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.2,
-  });
-  console.log("completion", completion);
 
-  return completion?.choices[0]?.message?.content ?? "";
+  const model = genAI.getGenerativeModel({
+    model: "gemini-3.6-flash",
+    generationConfig: {
+      temperature: 0.2,
+    },
+  });
+
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+
+  console.log("completion", text);
+
+  return text ?? "";
 }

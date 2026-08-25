@@ -1,10 +1,11 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
-import sgMail from "@sendgrid/mail";
+import { Resend } from "resend";
 
-// Configure SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY);
+const fromEmail =
+  process.env.RESEND_FROM_EMAIL || "DocAI <onboarding@resend.dev>";
 
 // ----------------- SIGNUP -----------------
 export const signup = async (req: any, res: any) => {
@@ -85,17 +86,17 @@ export const signup = async (req: any, res: any) => {
   }
 };
 
-// Async function to send activation email using SendGrid
+// Async function to send activation email using Resend
 async function sendActivationEmailAsync(email: string, name: string, token: string): Promise<void> {
   try {
     console.log(`📧 Sending activation email to: ${email}`);
     
     const link = `https://doc-ai-fast.netlify.app/activate/${token}`;
     
-    const msg = {
+    const { error } = await resend.emails.send({
       to: email,
-      from: 'raneeskalariyullathil@gmail.com', // Change to your verified sender
-      subject: 'Activate your DocAI account',
+      from: fromEmail,
+      subject: "Activate your DocAI account",
       text: `Hello ${name}, Thanks for signing up! Please click the link below to activate your account: ${link}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -113,9 +114,11 @@ async function sendActivationEmailAsync(email: string, name: string, token: stri
           <p style="color: #666; font-size: 14px;">This link will expire in 24 hours.</p>
         </div>
       `,
-    };
-    
-    await sgMail.send(msg);
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
     
     console.log(`✅ Activation email sent successfully to: ${email}`);
     
@@ -414,17 +417,17 @@ export const resetPassword = async (req: any, res: any) => {
   }
 };
 
-// Async function to send password reset email using SendGrid
+// Async function to send password reset email using Resend
 async function sendPasswordResetEmailAsync(email: string, name: string, token: string): Promise<void> {
   try {
     console.log(`📧 Sending password reset email to: ${email}`);
     
     const resetLink = `https://docaibackend-41i1.onrender.com/auth/reset-password/${token}`;
     
-    const msg = {
+    const { error } = await resend.emails.send({
       to: email,
-      from: 'raneeskalariyullathil@gmail.com', // Change to your verified sender
-      subject: 'Reset your DocAI password',
+      from: fromEmail,
+      subject: "Reset your DocAI password",
       text: `Hello ${name}, You requested a password reset. Please click the link below to reset your password: ${resetLink}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -460,9 +463,11 @@ async function sendPasswordResetEmailAsync(email: string, name: string, token: s
           </div>
         </div>
       `,
-    };
-    
-    await sgMail.send(msg);
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
     
     console.log(`✅ Password reset email sent successfully to: ${email}`);
     

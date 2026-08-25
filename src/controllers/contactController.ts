@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY);
+const fromEmail =
+  process.env.RESEND_FROM_EMAIL || 'DocAI <onboarding@resend.dev>';
 
 interface ContactFormData {
   name: string;
@@ -69,13 +70,9 @@ export const submitContactForm = async (req: Request, res: Response) => {
       </div>
     `;
 
-    // Send email using SendGrid
-    const msg = {
+    const { error: contactError } = await resend.emails.send({
       to: 'raneesk12@gmail.com',
-      from: {
-        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@docaibackend.com',
-        name: 'DocAI Contact Form'
-      },
+      from: fromEmail,
       replyTo: email,
       subject: `Contact Form: ${subject}`,
       html: emailContent,
@@ -92,17 +89,16 @@ export const submitContactForm = async (req: Request, res: Response) => {
         
         Reply directly to this email to respond to ${name}.
       `
-    };
+    });
 
-    await sgMail.send(msg);
+    if (contactError) {
+      throw new Error(contactError.message);
+    }
 
     // Send confirmation email to the user
-    const confirmationMsg = {
+    const { error: confirmationError } = await resend.emails.send({
       to: email,
-      from: {
-        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@docaibackend.com',
-        name: 'DocAI Team'
-      },
+      from: fromEmail,
       subject: 'Thank you for contacting us!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -148,9 +144,11 @@ export const submitContactForm = async (req: Request, res: Response) => {
         
         This is an automated confirmation email. Please do not reply to this message.
       `
-    };
+    });
 
-    await sgMail.send(confirmationMsg);
+    if (confirmationError) {
+      throw new Error(confirmationError.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -159,29 +157,6 @@ export const submitContactForm = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Error sending contact form:', error);
-    
-    // Handle SendGrid specific errors
-    if (error.code === 403) {
-      console.error('SendGrid 403 Error Details:', error.response?.body);
-      return res.status(500).json({
-        success: false,
-        message: 'Email service configuration error. Please contact support.'
-      });
-    }
-    
-    if (error.code === 401) {
-      return res.status(500).json({
-        success: false,
-        message: 'Email service authentication failed. Please contact support.'
-      });
-    }
-    
-    if (error.code === 400) {
-      return res.status(500).json({
-        success: false,
-        message: 'Invalid email configuration. Please contact support.'
-      });
-    }
 
     res.status(500).json({
       success: false,
